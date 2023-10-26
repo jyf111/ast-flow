@@ -1,0 +1,27 @@
+name: ast-flow-build
+
+on:
+  push:
+    branches:
+      - "*"
+    paths:
+      - "src/**"
+      - ".github/workflows/build.yml"
+  pull_request:
+    branches:
+      - "*"
+    paths:
+      - "src/**"
+      - ".github/workflows/build.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Build
+        run: |
+          cargo build --release
+          cargo install --path .

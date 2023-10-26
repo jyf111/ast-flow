@@ -1,0 +1,17 @@
+[package]
+name = "ast-flow"
+version = "0.1.0"
+edition = "2021"
+categories = ["command-line-utilities", "program-analysis"]
+
+[dependencies]
+clap = { version = "4.4.6", features = ["derive"] }
+colorful = "0.2.2"
+globset = "0.4"
+pager = "0.16.1"
+regex = "1.10.2"
+tree-sitter = "0.20.10"
+tree-sitter-cpp = "0.20.3"
+
+[build-dependencies]
+cc = "*"
