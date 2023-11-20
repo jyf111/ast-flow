@@ -11,6 +11,8 @@ enum Context {
   ClassSpecifier(usize),
   ClassIdentifier(Class),
   BaseClassClause,
+  AliasDeclaration,
+  TypeDefinition(usize),
 }
 
 impl ClassAnalyzer {
@@ -22,7 +24,6 @@ impl ClassAnalyzer {
 impl analyzer::Analyzer for ClassAnalyzer {
   fn extract_nodes(&mut self, syntax_tree: &syntaxtree::SyntaxTree, graph: &mut graph::Graph) {
     let mut context = Vec::<Context>::new();
-
     syntax_tree.iter().for_each(|node| match context.len() {
       0 if matches!(node.kind(), "struct_specifier" | "class_specifier") => {
         let source = syntax_tree.source(&node);
@@ -30,15 +31,39 @@ impl analyzer::Analyzer for ClassAnalyzer {
           context.push(Context::ClassSpecifier(node.end_byte()));
         }
       }
-      1 if matches!(node.kind(), "type_identifier") => {
-        context.pop();
-        let class = Class::new(
-          syntax_tree.source(&node),
-          &syntax_tree.file,
-          node.start_position().row + 1,
-        );
-        graph.add_node(&class);
+      0 if matches!(node.kind(), "alias_declaration") => context.push(Context::AliasDeclaration),
+      0 if matches!(node.kind(), "type_definition") => context.push(Context::TypeDefinition(0)),
+      1 if matches!(node.kind(), "template_type")
+        && matches!(context[0], Context::TypeDefinition(0)) =>
+      {
+        context[0] = Context::TypeDefinition(node.end_byte());
       }
+      1 if matches!(node.kind(), "type_identifier") => match context[0] {
+        Context::TypeDefinition(0) => context[0] = Context::TypeDefinition(node.end_byte()),
+        Context::ClassSpecifier(_) => {
+          context.pop();
+          let class = Class::new(
+            syntax_tree.source(&node),
+            &syntax_tree.file,
+            node.start_position().row + 1,
+          );
+          graph.add_node(&class);
+        }
+        _ => {
+          if let Context::TypeDefinition(end_byte) = context[0] {
+            if node.end_byte() <= end_byte {
+              return;
+            }
+          }
+          context.pop();
+          let class = Class::new_alias(
+            syntax_tree.source(&node),
+            &syntax_tree.file,
+            node.start_position().row + 1,
+          );
+          graph.add_node(&class);
+        }
+      },
       1.. => {
         if node.kind() == "field_declaration_list" {
           context.clear();

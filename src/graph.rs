@@ -32,6 +32,10 @@ impl Graph {
     self.edges.get_mut(u).unwrap().push(v.clone());
   }
 
+  pub fn get_adjacencies(&self, u: &node::Node) -> Option<&Vec<node::Node>> {
+    self.edges.get(u)
+  }
+
   pub fn reverse(&self) -> Self {
     let mut reverse_graph = Graph::new();
     reverse_graph.nodes = self.nodes.clone();

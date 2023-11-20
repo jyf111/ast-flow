@@ -3,6 +3,7 @@ use std::hash::Hash;
 #[derive(Clone, Default, Hash, Eq, PartialEq)]
 pub struct Node {
   pub name: String,
+  pub alias: bool,
   pub location: Vec<Location>,
 }
 
@@ -36,6 +37,18 @@ impl Node {
   pub fn new(name: &str, file: &str, row: usize) -> Self {
     Node {
       name: String::from(name),
+      alias: false,
+      location: vec![Location {
+        file: String::from(file),
+        row,
+      }],
+    }
+  }
+
+  pub fn new_alias(name: &str, file: &str, row: usize) -> Self {
+    Node {
+      name: String::from(name),
+      alias: true,
       location: vec![Location {
         file: String::from(file),
         row,
@@ -46,6 +59,7 @@ impl Node {
   pub fn new_without_loc(name: &str) -> Self {
     Node {
       name: String::from(name),
+      alias: false,
       location: vec![],
     }
   }

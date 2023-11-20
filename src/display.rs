@@ -4,6 +4,7 @@ use crate::node;
 
 use colorful::Color;
 use regex::Regex;
+use std::collections::HashMap;
 use std::collections::HashSet;
 
 pub struct Display<'a> {
@@ -38,16 +39,61 @@ impl<'a> Display<'a> {
   }
 
   fn filter_root_nodes(&self, nodes: Vec<&'a node::Node>) -> Vec<&'a node::Node> {
-    if self.succinct {
-      nodes
-        .into_iter()
-        .filter(|node| {
-          !self.graph.nodes.values().any(|u| {
-            self.graph.edges.contains_key(u)
-              && self.graph.edges.get(u).unwrap().iter().any(|v| *node == v)
-          })
-        })
-        .collect::<Vec<_>>()
+    if self.succinct && self.patterns.is_empty() {
+      // succinct is applied only if no pattern is specified
+      let mut degree = HashMap::<&'a node::Node, usize>::new();
+      for (_, edge) in self.graph.edges.iter() {
+        for v in edge {
+          degree.entry(v).or_insert(1);
+        }
+      }
+      let mut queue = Vec::<&'a node::Node>::new();
+      let mut head = 0;
+      let mut filtered_nodes = Vec::<&'a node::Node>::new();
+      nodes.iter().for_each(|node| match degree.get(node) {
+        None | Some(0) => {
+          queue.push(node);
+          filtered_nodes.push(node);
+        }
+        _ => (),
+      });
+      while queue.len() < nodes.len() {
+        if head == queue.len() {
+          let node = nodes
+            .iter()
+            .max_by_key(|node| match degree.get(*node) {
+              None | Some(0) => 0,
+              _ => {
+                if let Some(nodes) = self.graph.get_adjacencies(node) {
+                  nodes.len()
+                } else {
+                  0
+                }
+              }
+            })
+            .unwrap();
+          *degree.get_mut(node).unwrap() = 0;
+          queue.push(node);
+          filtered_nodes.push(node);
+        }
+        loop {
+          let u = queue[head];
+          head += 1;
+          if let Some(nodes) = self.graph.get_adjacencies(u) {
+            for v in nodes {
+              let deg_v = degree.get_mut(v).unwrap();
+              if *deg_v > 0 {
+                *deg_v = 0;
+                queue.push(v);
+              }
+            }
+          }
+          if head == queue.len() {
+            break;
+          }
+        }
+      }
+      filtered_nodes
     } else {
       nodes
     }
@@ -158,19 +204,22 @@ impl<'a> Display<'a> {
         text.push_str(&color::color(&format!("{}\n", u), Color::LightRed));
       } else if is_recursive {
         text.push_str(&color::color(&format!("{}\n", u), Color::LightCyan));
+      } else if u.alias {
+        text.push_str(&color::color(&format!("{}\n", u), Color::LightGreen));
       } else {
         text.push_str(&format!("{}\n", u));
       }
       if !is_recursive {
         visited.insert(u.name.clone());
-        if self.graph.edges.contains_key(u) {
-          let mut nodes = self.graph.edges.get(u).unwrap().clone();
+        if let Some(nodes) = self.graph.get_adjacencies(u) {
+          let mut nodes = nodes.clone();
           if self.ignore_unknown {
             nodes = nodes
               .into_iter()
               .filter(|v| !v.location.is_empty())
               .collect::<Vec<_>>();
           }
+          nodes.sort_by_key(|node| node.name.to_lowercase());
           let num = nodes.len();
           for (i, v) in nodes.into_iter().enumerate() {
             let mut end = end.clone();
@@ -227,11 +276,12 @@ impl<'a> Display<'a> {
 
   fn node_to_dot(&self, u: &node::Node) -> String {
     let mut text = String::new();
-    if self.max_depth != 0 && self.graph.edges.contains_key(u) {
-      let nodes = self.graph.edges.get(u).unwrap().clone();
-      for v in nodes {
-        if !self.ignore_unknown || !v.location.is_empty() {
-          text.push_str(&format!("\"{}\"->\"{}\";", u.name, v.name));
+    if self.max_depth != 0 {
+      if let Some(nodes) = self.graph.get_adjacencies(u) {
+        for v in nodes {
+          if !self.ignore_unknown || !v.location.is_empty() {
+            text.push_str(&format!("\"{}\"->\"{}\";", u.name, v.name));
+          }
         }
       }
     }
