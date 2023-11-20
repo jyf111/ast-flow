@@ -10,7 +10,9 @@ pub struct Driver;
 impl Driver {
   pub fn run<T: analyzer::Analyzer>(analyzer: &mut T, arg: &cli::Arg) -> String {
     let files = pathwalk::FileIterator::new(&arg.path, &arg.exclude_globset, arg.no_exclude);
-    let syntax_trees = files.map(SyntaxTree::new).collect::<Vec<_>>();
+    let syntax_trees = files
+      .map(|file| SyntaxTree::new(file, &arg.ignore_macros))
+      .collect::<Vec<_>>();
 
     let mut graph = graph::Graph::new();
     syntax_trees.iter().for_each(|tree| {

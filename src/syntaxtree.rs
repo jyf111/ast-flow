@@ -21,12 +21,15 @@ enum Direction {
 }
 
 impl SyntaxTree {
-  pub fn new(file: path::PathBuf) -> Self {
+  pub fn new(file: path::PathBuf, ignore_macros: &[String]) -> Self {
     let mut parser = tree_sitter::Parser::new();
     parser
       .set_language(tree_sitter_cpp::language())
       .expect("Error loading Cpp grammar");
-    let source = fs::read_to_string(&file).expect("Read file error");
+    let mut source = fs::read_to_string(&file).expect("Read file error");
+    ignore_macros.iter().for_each(|ignore_macro| {
+      source = source.replace(ignore_macro, &"".repeat(ignore_macro.len())); // replace with blank placeholder
+    });
     let tree = parser.parse(&source, None).unwrap();
     SyntaxTree {
       file: file.display().to_string(),

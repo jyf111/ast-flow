@@ -60,4 +60,8 @@ pub struct Arg {
   /// Whether to ignore unknown entries
   #[arg(long = "ignore-unknown", default_value_t = false)]
   pub ignore_unknown: bool,
+
+  /// Ignore a macro that confuses tree-sitter (this option can be provided multiple times)
+  #[arg(long = "ignore-macro")]
+  pub ignore_macros: Vec<String>,
 }
