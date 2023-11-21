@@ -33,6 +33,7 @@ impl Driver {
       arg.color,
       arg.depth,
       arg.ignore_unknown,
+      arg.sort_children,
     );
     if arg.dot {
       display.to_dot()

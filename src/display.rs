@@ -14,6 +14,7 @@ pub struct Display<'a> {
   color: bool,
   max_depth: i32,
   ignore_unknown: bool,
+  sort_children: bool,
 }
 
 impl<'a> Display<'a> {
@@ -24,6 +25,7 @@ impl<'a> Display<'a> {
     color: bool,
     max_depth: i32,
     ignore_unknown: bool,
+    sort_children: bool,
   ) -> Display<'a> {
     Display {
       graph,
@@ -35,12 +37,13 @@ impl<'a> Display<'a> {
       color,
       max_depth,
       ignore_unknown,
+      sort_children,
     }
   }
 
   fn filter_root_nodes(&self, nodes: Vec<&'a node::Node>) -> Vec<&'a node::Node> {
+    // Succinct is applied only if no pattern is specified
     if self.succinct && self.patterns.is_empty() {
-      // succinct is applied only if no pattern is specified
       let mut degree = HashMap::<&'a node::Node, usize>::new();
       for (_, edge) in self.graph.edges.iter() {
         for v in edge {
@@ -161,7 +164,7 @@ impl<'a> Display<'a> {
         text.push_str(&format!(
           "{}\n",
           if self.color {
-            color::color("unknown", Color::LightRed)
+            color::color("unknown", Color::LightYellow)
           } else {
             "unknown".to_string()
           }
@@ -187,28 +190,72 @@ impl<'a> Display<'a> {
       let mut text = String::new();
       (0..depth).for_each(|d| {
         if end[d] {
-          text.push_str("    ")
+          text += "    ";
         } else {
-          text.push_str("│   ")
+          text += "│   ";
         }
       });
+      let mut indent = text.clone();
       if end[depth] {
-        text.push_str("└── ")
+        text += "└── ";
+        indent += "    ";
       } else {
-        text.push_str("├── ")
+        text += "├── ";
+        indent += "│   ";
       }
+
       let is_recursive = visited.contains(&u.name);
-      if u.location.len() > 1 {
-        text.push_str(&color::color(&format!("{}\n", u), Color::LightYellow));
-      } else if u.location.is_empty() {
-        text.push_str(&color::color(&format!("{}\n", u), Color::LightRed));
-      } else if is_recursive {
-        text.push_str(&color::color(&format!("{}\n", u), Color::LightCyan));
-      } else if u.alias {
-        text.push_str(&color::color(&format!("{}\n", u), Color::LightGreen));
+      let color = if self.color {
+        if u.alias {
+          Some(Color::LightGreen)
+        } else if is_recursive {
+          Some(Color::LightCyan)
+        } else if u.location.is_empty() {
+          Some(Color::LightYellow)
+        } else {
+          None
+        }
       } else {
-        text.push_str(&format!("{}\n", u));
+        None
+      };
+
+      let lines = format!("{}", u);
+      let lines = lines.split('\n');
+      let mut first_line = true;
+      const DISPLAY_WIDTH: usize = 100;
+      for line in lines {
+        let mut i = 0;
+        let name_indent = line.find(' ').unwrap_or(0);
+        while i < line.len() {
+          let mut nxt_i = i + DISPLAY_WIDTH - indent.len();
+          if i > 0 {
+            nxt_i -= name_indent;
+          }
+          let mut refined_nxt_i = nxt_i;
+          while refined_nxt_i < line.len() && line.as_bytes()[refined_nxt_i] != b']' {
+            refined_nxt_i += 1;
+          }
+          nxt_i = line.len().min(refined_nxt_i + 1);
+
+          if !first_line {
+            text += &indent;
+          } else {
+            first_line = false;
+          }
+          if i > 0 {
+            text += &" ".repeat(name_indent);
+          }
+
+          if let Some(color) = color {
+            text.push_str(&color::color(line[i..nxt_i].trim(), color));
+          } else {
+            text += &line[i..nxt_i];
+          }
+          text += "\n";
+          i = nxt_i;
+        }
       }
+
       if !is_recursive {
         visited.insert(u.name.clone());
         if let Some(nodes) = self.graph.get_adjacencies(u) {
@@ -219,7 +266,9 @@ impl<'a> Display<'a> {
               .filter(|v| !v.location.is_empty())
               .collect::<Vec<_>>();
           }
-          nodes.sort_by_key(|node| node.name.to_lowercase());
+          if self.sort_children {
+            nodes.sort_by_key(|node| node.name.to_lowercase());
+          }
           let num = nodes.len();
           for (i, v) in nodes.into_iter().enumerate() {
             let mut end = end.clone();
@@ -270,7 +319,7 @@ impl<'a> Display<'a> {
         }
       }
     }
-    text.push_str("}\n");
+    text += "}\n";
     text
   }
 

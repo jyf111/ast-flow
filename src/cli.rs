@@ -64,4 +64,8 @@ pub struct Arg {
   /// Ignore a macro that confuses tree-sitter (this option can be provided multiple times)
   #[arg(long = "ignore-macro")]
   pub ignore_macros: Vec<String>,
+
+  /// Whether to sort child nodes by name
+  #[arg(long = "sort-children", default_value_t = false)]
+  pub sort_children: bool,
 }

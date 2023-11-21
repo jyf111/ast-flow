@@ -8,7 +8,7 @@ use std::collections::HashMap;
 type Call = node::Node;
 
 pub struct CallAnalyzer {
-  qualified_function_pool: HashMap<String, Option<String>>,
+  qualified_function_pool: HashMap<String, Call>,
 }
 
 enum Context {
@@ -31,7 +31,9 @@ impl CallAnalyzer {
 impl analyzer::Analyzer for CallAnalyzer {
   fn extract_nodes(&mut self, syntax_tree: &syntaxtree::SyntaxTree, graph: &mut graph::Graph) {
     let mut context = Vec::<Context>::new();
-
+    // syntax_tree.iter().for_each(|node| {
+    //   println!("{} {}", node.kind(), syntax_tree.source(&node));
+    // });
     syntax_tree.iter().for_each(|node| match context.len() {
       0 if matches!(node.kind(), "struct_specifier" | "class_specifier") => {
         let source = syntax_tree.source(&node);
@@ -75,18 +77,6 @@ impl analyzer::Analyzer for CallAnalyzer {
           let function = &format!("{}()", syntax_tree.source(&node));
           let call = Call::new(function, &syntax_tree.file, node.start_position().row + 1);
           graph.add_node(&call);
-          if let Some(index) = function.rfind(':') {
-            let qualified_function = function;
-            let function = &qualified_function[index + 1..];
-            if !self.qualified_function_pool.contains_key(function) {
-              self.qualified_function_pool.insert(
-                String::from(function),
-                Some(String::from(qualified_function)),
-              );
-            } else {
-              *self.qualified_function_pool.get_mut(function).unwrap() = None;
-            }
-          }
         }
       }
       4 if matches!(
@@ -109,13 +99,6 @@ impl analyzer::Analyzer for CallAnalyzer {
               node.start_position().row + 1,
             );
             graph.add_node(&call);
-            if !self.qualified_function_pool.contains_key(function) {
-              self
-                .qualified_function_pool
-                .insert(function.clone(), Some(qualified_function.clone()));
-            } else {
-              *self.qualified_function_pool.get_mut(function).unwrap() = None;
-            }
           } else {
             context.clear();
           }
@@ -143,6 +126,25 @@ impl analyzer::Analyzer for CallAnalyzer {
   }
 
   fn extract_edges(&mut self, syntax_tree: &syntaxtree::SyntaxTree, graph: &mut graph::Graph) {
+    if self.qualified_function_pool.is_empty() {
+      for (qualified_name, call) in graph.nodes.iter() {
+        if let Some(index) = qualified_name.rfind(':') {
+          let name = &qualified_name[index + 1..];
+          if !self.qualified_function_pool.contains_key(name) {
+            self
+              .qualified_function_pool
+              .insert(String::from(name), call.clone());
+          } else {
+            self
+              .qualified_function_pool
+              .get_mut(name)
+              .unwrap()
+              .merge_node(call);
+          }
+        }
+      }
+    }
+
     let mut context = Vec::<Context>::new();
     let mut call_stack = Vec::<(usize, Call)>::new();
 
@@ -229,7 +231,7 @@ impl analyzer::Analyzer for CallAnalyzer {
         if let Some(Context::CallExpression(pos)) = context.last() {
           let pos = *pos;
           context.pop();
-          if let Some(Context::FunctionIdentifier(_)) = context.last() {
+          if let Some(Context::FunctionIdentifier(ref call)) = context.last() {
             let source = syntax_tree.source(&node);
             let call_function = if let Some(index) = source.find('<') {
               &source[..index]
@@ -253,25 +255,29 @@ impl analyzer::Analyzer for CallAnalyzer {
             }
             let function = &format!("{}()", function_name);
             if node.kind() == "field_expression" {
-              if let Some(Some(qualified_function)) = self.qualified_function_pool.get(function) {
-                if let Some(callee) = graph.get_node(qualified_function) {
-                  call_stack.push((pos, callee.clone()));
-                }
+              if let Some(callee) = self.qualified_function_pool.get(function) {
+                call_stack.push((pos, callee.clone()));
               } else {
-                let function = &format!("unknown::{}", function);
                 let callee = Call::new_without_loc(function);
                 graph.add_node(&callee);
                 call_stack.push((pos, callee));
               }
-            } else if let Some(callee) = graph.get_node(function) {
-              call_stack.push((pos, callee.clone()));
-            } else if let Some(Some(qualified_function)) =
-              self.qualified_function_pool.get(function)
-            {
-              if let Some(callee) = graph.get_node(qualified_function) {
-                call_stack.push((pos, callee.clone()));
-              }
             } else {
+              // If we are currently within a member function, we should first lookup in member functions and then in global functions;
+              // Otherwise, we should only look up in global functions
+              if call.name.contains("::") {
+                if let Some(callee) = self.qualified_function_pool.get(function) {
+                  call_stack.push((pos, callee.clone()));
+                  return;
+                } else if let Some(callee) = graph.get_node(function) {
+                  call_stack.push((pos, callee.clone()));
+                  return;
+                }
+              } else if let Some(callee) = graph.get_node(function) {
+                call_stack.push((pos, callee.clone()));
+                return;
+              }
+
               let callee = Call::new_without_loc(function);
               graph.add_node(&callee);
               call_stack.push((pos, callee));

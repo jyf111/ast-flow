@@ -24,6 +24,7 @@ impl ClassAnalyzer {
 impl analyzer::Analyzer for ClassAnalyzer {
   fn extract_nodes(&mut self, syntax_tree: &syntaxtree::SyntaxTree, graph: &mut graph::Graph) {
     let mut context = Vec::<Context>::new();
+
     syntax_tree.iter().for_each(|node| match context.len() {
       0 if matches!(node.kind(), "struct_specifier" | "class_specifier") => {
         let source = syntax_tree.source(&node);
@@ -40,14 +41,12 @@ impl analyzer::Analyzer for ClassAnalyzer {
       }
       1 if matches!(node.kind(), "type_identifier") => match context[0] {
         Context::TypeDefinition(0) => context[0] = Context::TypeDefinition(node.end_byte()),
-        Context::ClassSpecifier(_) => {
-          context.pop();
-          let class = Class::new(
+        Context::ClassSpecifier(_) | Context::ClassIdentifier(_) => {
+          context[0] = Context::ClassIdentifier(Class::new(
             syntax_tree.source(&node),
             &syntax_tree.file,
             node.start_position().row + 1,
-          );
-          graph.add_node(&class);
+          ));
         }
         _ => {
           if let Context::TypeDefinition(end_byte) = context[0] {
@@ -65,7 +64,12 @@ impl analyzer::Analyzer for ClassAnalyzer {
         }
       },
       1.. => {
-        if node.kind() == "field_declaration_list" {
+        if matches!(node.kind(), "field_declaration_list" | "base_class_clause") {
+          if context.len() == 1 {
+            if let Context::ClassIdentifier(ref class) = context[0] {
+              graph.add_node(class);
+            }
+          }
           context.clear();
         } else if let Context::ClassSpecifier(pos) = context[0] {
           if node.start_byte() + 1 >= pos {

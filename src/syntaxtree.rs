@@ -28,7 +28,7 @@ impl SyntaxTree {
       .expect("Error loading Cpp grammar");
     let mut source = fs::read_to_string(&file).expect("Read file error");
     ignore_macros.iter().for_each(|ignore_macro| {
-      source = source.replace(ignore_macro, &"".repeat(ignore_macro.len())); // replace with blank placeholder
+      source = source.replace(ignore_macro, &"".repeat(ignore_macro.len())); // Replace with blank placeholder
     });
     let tree = parser.parse(&source, None).unwrap();
     SyntaxTree {
