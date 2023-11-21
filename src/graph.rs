@@ -27,21 +27,22 @@ impl Graph {
 
   pub fn add_edge(&mut self, u: &node::Node, v: &node::Node) {
     if !self.edges.contains_key(u) {
-      self.edges.insert(u.clone(), Vec::new());
+      self.edges.insert(u.clone(), vec![v.clone()]);
+    } else {
+      self.edges.get_mut(u).unwrap().push(v.clone());
     }
-    self.edges.get_mut(u).unwrap().push(v.clone());
   }
 
   pub fn get_adjacencies(&self, u: &node::Node) -> Option<&Vec<node::Node>> {
     self.edges.get(u)
   }
 
-  pub fn reverse(&self) -> Self {
+  pub fn reverse(self) -> Self {
     let mut reverse_graph = Graph::new();
-    reverse_graph.nodes = self.nodes.clone();
-    for (u, out_edges) in self.edges.iter() {
+    reverse_graph.nodes = self.nodes;
+    for (u, out_edges) in self.edges {
       for v in out_edges {
-        reverse_graph.add_edge(v, u);
+        reverse_graph.add_edge(&v, &u);
       }
     }
     reverse_graph

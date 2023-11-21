@@ -31,7 +31,13 @@ impl<'a> Display<'a> {
       graph,
       patterns: patterns
         .iter()
-        .map(|pattern| Regex::new(pattern).unwrap())
+        .flat_map(|pattern| match Regex::new(pattern) {
+          Err(e) => {
+            eprintln!("[Warning] {}", e);
+            Err(e)
+          }
+          Ok(regex) => Ok(regex),
+        })
         .collect::<Vec<_>>(),
       succinct,
       color,
@@ -44,29 +50,30 @@ impl<'a> Display<'a> {
   fn filter_root_nodes(&self, nodes: Vec<&'a node::Node>) -> Vec<&'a node::Node> {
     // Succinct is applied only if no pattern is specified
     if self.succinct && self.patterns.is_empty() {
-      let mut degree = HashMap::<&'a node::Node, usize>::new();
+      let mut has_degree = HashMap::<&'a node::Node, bool>::new();
       for (_, edge) in self.graph.edges.iter() {
         for v in edge {
-          degree.entry(v).or_insert(1);
+          has_degree.entry(v).or_insert(true);
         }
       }
+
+      let mut filtered_nodes = Vec::<&'a node::Node>::new();
       let mut queue = Vec::<&'a node::Node>::new();
       let mut head = 0;
-      let mut filtered_nodes = Vec::<&'a node::Node>::new();
-      nodes.iter().for_each(|node| match degree.get(node) {
-        None | Some(0) => {
-          queue.push(node);
+      nodes.iter().for_each(|node| match has_degree.get(node) {
+        None | Some(false) => {
           filtered_nodes.push(node);
+          queue.push(node);
         }
-        _ => (),
+        Some(true) => (),
       });
       while queue.len() < nodes.len() {
         if head == queue.len() {
           let node = nodes
             .iter()
-            .max_by_key(|node| match degree.get(*node) {
-              None | Some(0) => 0,
-              _ => {
+            .max_by_key(|node| match has_degree.get(*node) {
+              None | Some(false) => 0,
+              Some(true) => {
                 if let Some(nodes) = self.graph.get_adjacencies(node) {
                   nodes.len()
                 } else {
@@ -75,18 +82,18 @@ impl<'a> Display<'a> {
               }
             })
             .unwrap();
-          *degree.get_mut(node).unwrap() = 0;
-          queue.push(node);
+          *has_degree.get_mut(node).unwrap() = false;
           filtered_nodes.push(node);
+          queue.push(node);
         }
         loop {
           let u = queue[head];
           head += 1;
           if let Some(nodes) = self.graph.get_adjacencies(u) {
             for v in nodes {
-              let deg_v = degree.get_mut(v).unwrap();
-              if *deg_v > 0 {
-                *deg_v = 0;
+              let v_has_deg = has_degree.get_mut(v).unwrap();
+              if *v_has_deg {
+                *v_has_deg = false;
                 queue.push(v);
               }
             }
@@ -124,9 +131,9 @@ impl<'a> Display<'a> {
 
     let mut files = HashSet::new();
     for node in nodes.iter() {
-      for loc in node.location.iter() {
+      node.location.iter().for_each(|loc| {
         files.insert(&loc.file);
-      }
+      });
     }
     let mut files = Vec::from_iter(files);
     files.sort_by_key(|file| file.to_lowercase());
@@ -144,7 +151,7 @@ impl<'a> Display<'a> {
           if self.color {
             color::color(file, Color::LightMagenta)
           } else {
-            file.to_string()
+            String::from(file)
           }
         ));
         let num = nodes_in_file.len();
@@ -219,13 +226,13 @@ impl<'a> Display<'a> {
         None
       };
 
-      let lines = format!("{}", u);
+      const DISPLAY_WIDTH: usize = 100;
+      let lines = u.to_string();
       let lines = lines.split('\n');
       let mut first_line = true;
-      const DISPLAY_WIDTH: usize = 100;
       for line in lines {
-        let mut i = 0;
         let name_indent = line.find(' ').unwrap_or(0);
+        let mut i = 0;
         while i < line.len() {
           let mut nxt_i = i + DISPLAY_WIDTH - indent.len();
           if i > 0 {
@@ -251,7 +258,7 @@ impl<'a> Display<'a> {
           } else {
             text += &line[i..nxt_i];
           }
-          text += "\n";
+          text.push('\n');
           i = nxt_i;
         }
       }
@@ -287,9 +294,9 @@ impl<'a> Display<'a> {
 
     let mut files = HashSet::new();
     for node in nodes.iter() {
-      for loc in node.location.iter() {
+      node.location.iter().for_each(|loc| {
         files.insert(&loc.file);
-      }
+      });
     }
 
     let mut text = String::from(

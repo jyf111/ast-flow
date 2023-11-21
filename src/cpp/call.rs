@@ -31,9 +31,7 @@ impl CallAnalyzer {
 impl analyzer::Analyzer for CallAnalyzer {
   fn extract_nodes(&mut self, syntax_tree: &syntaxtree::SyntaxTree, graph: &mut graph::Graph) {
     let mut context = Vec::<Context>::new();
-    // syntax_tree.iter().for_each(|node| {
-    //   println!("{} {}", node.kind(), syntax_tree.source(&node));
-    // });
+
     syntax_tree.iter().for_each(|node| match context.len() {
       0 if matches!(node.kind(), "struct_specifier" | "class_specifier") => {
         let source = syntax_tree.source(&node);

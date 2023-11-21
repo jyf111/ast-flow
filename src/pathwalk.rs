@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use std::fs;
 use std::iter;
@@ -11,32 +12,41 @@ pub struct FileIterator {
 }
 
 impl FileIterator {
-  pub fn new(root: &path::PathBuf, exclude_globset: &Vec<String>, no_exclude: bool) -> Self {
+  pub fn new(root: &path::PathBuf, exclude_globset: &[String], no_exclude: bool) -> Result<Self> {
     let mut exclude_builder = GlobSetBuilder::new();
-    for glob in exclude_globset {
-      exclude_builder.add(Glob::new(glob).unwrap());
-    }
+    let mut exclude_globset = exclude_globset.to_owned();
     if !no_exclude {
-      exclude_builder.add(Glob::new("*benchmark*").unwrap());
-      exclude_builder.add(Glob::new("*build*").unwrap());
-      exclude_builder.add(Glob::new("*contrib*").unwrap());
-      exclude_builder.add(Glob::new("*example*").unwrap());
-      exclude_builder.add(Glob::new("*test*").unwrap());
-      exclude_builder.add(Glob::new("*thirdparty*").unwrap());
-      exclude_builder.add(Glob::new("*third[-_]party*").unwrap());
-      exclude_builder.add(Glob::new("*deps*").unwrap());
+      exclude_globset.push("*benchmark*".to_string());
+      exclude_globset.push("*build*".to_string());
+      exclude_globset.push("*contrib*".to_string());
+      exclude_globset.push("*example*".to_string());
+      exclude_globset.push("*test*".to_string());
+      exclude_globset.push("*thirdparty*".to_string());
+      exclude_globset.push("*third[-_]party*".to_string());
+      exclude_globset.push("*deps*".to_string());
+    }
+    for pattern in exclude_globset {
+      match Glob::new(&pattern) {
+        Err(e) => eprintln!("[Warning] {}", e),
+        Ok(glob) => {
+          exclude_builder.add(glob);
+        }
+      };
     }
 
-    FileIterator {
+    Ok(FileIterator {
       root: root.clone(),
       visited: false,
       stack: if root.is_file() {
         vec![]
       } else {
-        vec![fs::read_dir(root).unwrap()]
+        vec![fs::read_dir(root)
+          .with_context(|| format!("Failed to read directory: \"{}\"!", root.display()))?]
       },
-      exclude_globset: exclude_builder.build().unwrap(),
-    }
+      exclude_globset: exclude_builder
+        .build()
+        .context("Failed to build GlobSet!")?,
+    })
   }
 }
 

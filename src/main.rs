@@ -12,9 +12,11 @@ mod syntaxtree;
 use clap::Parser;
 use cpp::call::CallAnalyzer;
 use cpp::class::ClassAnalyzer;
+use std::io::{self, Write};
 
 fn main() {
-  let mut pager = pager::Pager::with_pager("less -i -r -F");
+  let mut pager =
+    pager::Pager::with_pager("less --raw-control-chars --ignore-case --quit-if-one-screen");
   pager.setup();
 
   let mut cli = cli::Cli::parse();
@@ -25,17 +27,15 @@ fn main() {
       }
     }
   }
-  print!(
+
+  if let Err(e) = write!(
+    io::stdout(),
     "{}",
     match cli.command {
-      cli::Command::Class(arg) => {
-        let mut class_analyzer = ClassAnalyzer::new();
-        driver::Driver::run(&mut class_analyzer, &arg)
-      }
-      cli::Command::Call(arg) => {
-        let mut call_analyzer = CallAnalyzer::new();
-        driver::Driver::run(&mut call_analyzer, &arg)
-      }
+      cli::Command::Class(arg) => driver::Driver::run(&mut ClassAnalyzer::new(), &arg),
+      cli::Command::Call(arg) => driver::Driver::run(&mut CallAnalyzer::new(), &arg),
     }
-  )
+  ) {
+    eprintln!("[Warning] {}", e);
+  }
 }

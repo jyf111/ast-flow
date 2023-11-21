@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 use std::fs;
 use std::iter;
 use std::path;
@@ -21,20 +22,26 @@ enum Direction {
 }
 
 impl SyntaxTree {
-  pub fn new(file: path::PathBuf, ignore_macros: &[String]) -> Self {
+  pub fn new(file: path::PathBuf, ignore_macros: &[String]) -> Result<Self> {
     let mut parser = tree_sitter::Parser::new();
     parser
       .set_language(tree_sitter_cpp::language())
-      .expect("Error loading Cpp grammar");
-    let mut source = fs::read_to_string(&file).expect("Read file error");
+      .context("Failed to load Cpp grammar!")?;
+
+    let mut source = fs::read_to_string(&file)
+      .with_context(|| format!("Failed to read file: {}!", file.display()))?;
     ignore_macros.iter().for_each(|ignore_macro| {
       source = source.replace(ignore_macro, &"".repeat(ignore_macro.len())); // Replace with blank placeholder
     });
-    let tree = parser.parse(&source, None).unwrap();
-    SyntaxTree {
-      file: file.display().to_string(),
-      source,
-      tree,
+
+    if let Some(tree) = parser.parse(&source, None) {
+      Ok(SyntaxTree {
+        file: file.display().to_string(),
+        source,
+        tree,
+      })
+    } else {
+      Err(anyhow::anyhow!("Failed to parse file: {}!", file.display()))
     }
   }
 
@@ -56,6 +63,7 @@ impl<'a> NodeIterator<'a> {
   }
 }
 
+// Depth first search sequence
 impl<'a> iter::Iterator for NodeIterator<'a> {
   type Item = tree_sitter::Node<'a>;
 
@@ -64,10 +72,9 @@ impl<'a> iter::Iterator for NodeIterator<'a> {
       if self.dir == Direction::None {
         self.dir = Direction::Down;
         return Some(self.cursor.node());
-      } else if self.dir == Direction::Down && self.cursor.goto_first_child() {
-        self.dir = Direction::None;
-        continue;
-      } else if self.cursor.goto_next_sibling() {
+      } else if (self.dir == Direction::Down && self.cursor.goto_first_child())
+        || self.cursor.goto_next_sibling()
+      {
         self.dir = Direction::None;
       } else {
         self.dir = Direction::Up;

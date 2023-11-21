@@ -5,9 +5,10 @@ edition = "2021"
 categories = ["command-line-utilities", "program-analysis"]
 
 [dependencies]
-clap = { version = "4.4.6", features = ["derive"] }
+anyhow = "1.0.75"
+clap = { version = "4.4.8", features = ["derive"] }
 colorful = "0.2.2"
-globset = "0.4"
+globset = "0.4.13"
 pager = "0.16.1"
 regex = "1.10.2"
 tree-sitter = "0.20.10"

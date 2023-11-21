@@ -5,7 +5,7 @@ use crate::syntaxtree;
 
 type Class = node::Node;
 
-pub struct ClassAnalyzer {}
+pub struct ClassAnalyzer;
 
 enum Context {
   ClassSpecifier(usize),
