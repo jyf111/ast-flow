@@ -336,7 +336,7 @@ impl<'a> Display<'a> {
       if let Some(nodes) = self.graph.get_adjacencies(u) {
         for v in nodes {
           if !self.ignore_unknown || !v.location.is_empty() {
-            text.push_str(&format!("\"{}\"->\"{}\";", u.name, v.name));
+            text.push_str(&format!("\"{}\"->\"{}\";", v.name, u.name));
           }
         }
       }

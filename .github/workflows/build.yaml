@@ -25,3 +25,5 @@ jobs:
         run: |
           cargo build --release
           cargo install --path .
+          ast-flow --help
+          ast-flow call --help
