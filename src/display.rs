@@ -292,39 +292,14 @@ impl<'a> Display<'a> {
     let nodes = self.filter_root_nodes(self.graph.nodes.values().collect::<Vec<_>>());
     let nodes = self.filter_nodes(nodes);
 
-    let mut files = HashSet::new();
-    for node in nodes.iter() {
-      node.location.iter().for_each(|loc| {
-        files.insert(&loc.file);
-      });
-    }
-
     let mut text = String::from(
       "digraph g {\nnode [margin=0,width=.5,height=.2];edge [arrowsize=.5,arrowhead=vee];\n",
     );
-    for file in files {
-      let mut nodes_in_file = nodes
-        .iter()
-        .filter(|node| node.location.iter().any(|loc| loc.file == *file))
-        .collect::<Vec<_>>();
-      if !nodes_in_file.is_empty() {
-        nodes_in_file.sort_by_key(|node| node.name.to_lowercase());
-        for u in nodes_in_file {
-          text.push_str(&self.node_to_dot(u));
-        }
-      }
+    for node in nodes.iter() {
+      text.push_str(&format!("\"{}\";", node.name));
     }
-    if !self.ignore_unknown {
-      let mut nodes_in_unknown = nodes
-        .iter()
-        .filter(|node| node.location.is_empty())
-        .collect::<Vec<_>>();
-      if !nodes_in_unknown.is_empty() {
-        nodes_in_unknown.sort_by_key(|node| node.name.to_lowercase());
-        for u in nodes_in_unknown {
-          text.push_str(&self.node_to_dot(u));
-        }
-      }
+    for node in nodes {
+      text.push_str(&self.node_to_dot(node));
     }
     text += "}\n";
     text

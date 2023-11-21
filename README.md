@@ -27,7 +27,7 @@ It provides class hierarchy graph and function call graph to visualize the code.
 
   `ast-flow call -p ./src/graph/planner/plan`
 
-  [![call-demo2.png](https://z1.ax1x.com/2023/11/21/pia2aXq.png)](https://imgse.com/i/pia2aXq)
+  [![call-demo2.png](https://z1.ax1x.com/2023/11/21/piaR7ZV.png)](https://imgse.com/i/piaR7ZV)
 
   Cyan denotes recursive calls.
 
@@ -35,7 +35,7 @@ It provides class hierarchy graph and function call graph to visualize the code.
 
   `ast-flow class --dot | fdp -Tpng -o class.png`
 
-  [![class-demo2.png](https://z1.ax1x.com/2023/11/21/pia2Ucn.png)](https://imgse.com/i/pia2Ucn)
+  [![class-demo2.png](https://z1.ax1x.com/2023/11/21/piaRGb6.png)](https://imgse.com/i/piaRGb6)
 
 ## Details
 
