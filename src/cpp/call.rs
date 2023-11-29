@@ -215,7 +215,12 @@ impl analyzer::Analyzer for CallAnalyzer {
           }
         }
       }
-      2 | 4 if matches!(node.kind(), "call_expression") => {
+      2 | 4
+        if matches!(
+          node.kind(),
+          "call_expression" | "new_expression" | "delete_expression"
+        ) =>
+      {
         if let Some(Context::FunctionIdentifier(_)) = context.last() {
           context.push(Context::CallExpression(node.end_byte()));
         }
@@ -223,7 +228,7 @@ impl analyzer::Analyzer for CallAnalyzer {
       3 | 5
         if matches!(
           node.kind(),
-          "identifier" | "qualified_identifier" | "field_expression"
+          "identifier" | "qualified_identifier" | "field_expression" | "new" | "delete"
         ) =>
       {
         if let Some(Context::CallExpression(pos)) = context.last() {
@@ -252,7 +257,15 @@ impl analyzer::Analyzer for CallAnalyzer {
               function_name = &function_name[..index];
             }
             let function = &format!("{}()", function_name);
-            if node.kind() == "field_expression" {
+            if node.kind() == "new" {
+              let callee = Call::new_without_loc("operator new()");
+              graph.add_node(&callee);
+              call_stack.push((pos, callee));
+            } else if node.kind() == "delete" {
+              let callee = Call::new_without_loc("operator delete()");
+              graph.add_node(&callee);
+              call_stack.push((pos, callee));
+            } else if node.kind() == "field_expression" {
               if let Some(callee) = self.qualified_function_pool.get(function) {
                 call_stack.push((pos, callee.clone()));
               } else {
