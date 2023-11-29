@@ -16,14 +16,14 @@ impl FileIterator {
     let mut exclude_builder = GlobSetBuilder::new();
     let mut exclude_globset = exclude_globset.to_owned();
     if !no_exclude {
-      exclude_globset.push("*benchmark*".to_string());
-      exclude_globset.push("*build*".to_string());
-      exclude_globset.push("*contrib*".to_string());
-      exclude_globset.push("*example*".to_string());
-      exclude_globset.push("*test*".to_string());
-      exclude_globset.push("*thirdparty*".to_string());
-      exclude_globset.push("*third[-_]party*".to_string());
-      exclude_globset.push("*deps*".to_string());
+      exclude_globset.push("*benchmark*/*".to_string());
+      exclude_globset.push("*build*/*".to_string());
+      exclude_globset.push("*contrib*/*".to_string());
+      exclude_globset.push("*example*/*".to_string());
+      exclude_globset.push("*test*/*".to_string());
+      exclude_globset.push("*thirdparty*/*".to_string());
+      exclude_globset.push("*third[-_]party*/*".to_string());
+      exclude_globset.push("*deps*/*".to_string());
     }
     for pattern in exclude_globset {
       match Glob::new(&pattern) {
@@ -40,8 +40,7 @@ impl FileIterator {
       stack: if root.is_file() {
         vec![]
       } else {
-        vec![fs::read_dir(root)
-          .with_context(|| format!("Failed to read directory: \"{}\"!", root.display()))?]
+        vec![fs::read_dir(root).with_context(|| format!("Failed to read: \"{}\"!", root.display()))?]
       },
       exclude_globset: exclude_builder
         .build()
@@ -70,7 +69,7 @@ impl iter::Iterator for FileIterator {
               if entry_path.is_file() && self.exclude_globset.matches(relative_path).is_empty() {
                 if let Some(ext) = relative_path.extension() {
                   if let Some(ext) = ext.to_str() {
-                    if matches!(ext, "c" | "cc" | "cpp" | "h" | "hh" | "hpp") {
+                    if matches!(ext, "c" | "cc" | "cpp" | "c++" | "h" | "hh" | "hpp" | "h++") {
                       return Some(entry_path);
                     }
                   }

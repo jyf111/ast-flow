@@ -28,8 +28,8 @@ impl SyntaxTree {
       .set_language(tree_sitter_cpp::language())
       .context("Failed to load Cpp grammar!")?;
 
-    let mut source = fs::read_to_string(&file)
-      .with_context(|| format!("Failed to read file: {}!", file.display()))?;
+    let mut source =
+      fs::read_to_string(&file).with_context(|| format!("Failed to read: {}!", file.display()))?;
     ignore_macros.iter().for_each(|ignore_macro| {
       source = source.replace(ignore_macro, &"".repeat(ignore_macro.len())); // Replace with blank placeholder
     });

@@ -10,7 +10,7 @@ pub struct ClassAnalyzer;
 enum Context {
   ClassSpecifier(usize),
   ClassIdentifier(Class),
-  BaseClassClause,
+  BaseClassClause(usize),
   AliasDeclaration,
   TypeDefinition(usize),
 }
@@ -98,34 +98,36 @@ impl analyzer::Analyzer for ClassAnalyzer {
           context.pop();
         }
       }
-      2 if matches!(node.kind(), "base_class_clause" | ",") => {
-        context.push(Context::BaseClassClause)
-      }
+      2 if matches!(node.kind(), "base_class_clause") => context.push(Context::BaseClassClause(0)),
       3 if matches!(
         node.kind(),
         "type_identifier" | "template_type" | "qualified_identifier"
       ) =>
       {
-        context.pop();
         if let Context::ClassIdentifier(ref class) = context[1] {
-          let source = syntax_tree.source(&node);
-          let baseclass_name = if let Some(index) = source.find('<') {
-            &source[..index]
-          } else {
-            source
-          };
-          let unqualified_baseclass_name = if let Some(index) = baseclass_name.rfind(':') {
-            &baseclass_name[index + 1..]
-          } else {
-            baseclass_name
-          };
-          if let Some(baseclass) = graph.get_node(unqualified_baseclass_name) {
-            let baseclass = baseclass.clone();
-            graph.add_edge(&baseclass, class);
-          } else {
-            let baseclass = Class::new_without_loc(baseclass_name);
-            graph.add_node(&baseclass);
-            graph.add_edge(&baseclass, class);
+          if let Context::BaseClassClause(pos) = context[2] {
+            if node.start_byte() > pos {
+              let source = syntax_tree.source(&node);
+              let baseclass_name = if let Some(index) = source.find('<') {
+                &source[..index]
+              } else {
+                source
+              };
+              let unqualified_baseclass_name = if let Some(index) = baseclass_name.rfind(':') {
+                &baseclass_name[index + 1..]
+              } else {
+                baseclass_name
+              };
+              if let Some(baseclass) = graph.get_node(unqualified_baseclass_name) {
+                let baseclass = baseclass.clone();
+                graph.add_edge(&baseclass, class);
+              } else {
+                let baseclass = Class::new_without_loc(baseclass_name);
+                graph.add_node(&baseclass);
+                graph.add_edge(&baseclass, class);
+              }
+              context[2] = Context::BaseClassClause(node.end_byte());
+            }
           }
         } else {
           context.clear();

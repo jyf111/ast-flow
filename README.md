@@ -33,9 +33,9 @@ It provides class hierarchy graph and function call graph to visualize the code.
 
 - Visualize the hierarchy graph of all classes in LevelDB using Graphviz
 
-  `ast-flow class --dot | fdp -Tpng -o class.png`
+  `ast-flow class --dot --ignore-macro LEVELDB_EXPORT | fdp -Tpng -o class.png`
 
-  [![class-demo2.png](https://z1.ax1x.com/2023/11/21/piaRGb6.png)](https://imgse.com/i/piaRGb6)
+  [![class-demo2.png](https://z1.ax1x.com/2023/11/29/piDWf2T.png)](https://imgse.com/i/piDWf2T)
 
 ## Details
 
